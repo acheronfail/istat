@@ -140,11 +140,16 @@ async fn watch_net_updates(
     let mut rx = netlink_ipaddr_listen(manual_trigger).await?;
     loop {
         if let Some(mut interfaces) = rx.recv().await {
-            // filter out loopback interfaces
+            // filter out some addresses
             interfaces.retain(|_, int| {
                 log::trace!("found interface: {:?}", int);
 
-                int.name.as_ref() != "lo"
+                // remove any loopback/unspecified ip addresses
+                int.ip_addresses
+                    .retain(|addr| !(addr.is_loopback() || addr.is_unspecified()));
+
+                // filter out interfaces without any addresses
+                int.ip_addresses.is_empty()
             });
             tx.send(interfaces)?;
         }
